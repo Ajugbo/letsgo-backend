@@ -149,6 +149,46 @@ app.get('/admin/users', requireAdmin, async (req, res) => {
   }
 });
 
+// User Details Page
+app.get('/admin/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const pool = require('./config/database');
+    const userId = req.params.id;
+    
+    // Get user details
+    const userResult = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).send('User not found');
+    }
+    
+    const user = userResult.rows[0];
+    
+    // Get user's rides
+    const ridesResult = await pool.query(
+      'SELECT * FROM rides WHERE user_id = $1 ORDER BY created_at DESC',
+      [userId]
+    );
+    
+    // Get user's wallet
+    const walletResult = await pool.query(
+      'SELECT * FROM wallets WHERE user_id = $1',
+      [userId]
+    );
+    
+    const wallet = walletResult.rows[0] || null;
+    
+    res.render('user-details', {
+      user: user,
+      rides: ridesResult.rows,
+      wallet: wallet
+    });
+  } catch (error) {
+    console.error('User details error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Rides List Page
 app.get('/admin/rides', requireAdmin, async (req, res) => {
   try {
