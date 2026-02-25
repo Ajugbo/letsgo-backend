@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Users - LetsGo Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen">
+        <div class="flex">
+            <!-- Sidebar -->
+            <div class="w-64 bg-gray-900 min-h-screen p-6">
+                <h1 class="text-white text-2xl font-bold mb-8">LetsGo Admin</h1>
+                <nav class="space-y-4">
+                    <a href="/admin" class="text-gray-300 hover:bg-gray-800 block py-2 px-4 rounded">
+                        <i class="fas fa-home mr-2"></i> Dashboard
+                    </a>
+                    <a href="/admin/users" class="text-white block py-2 px-4 rounded bg-blue-600">
+                        <i class="fas fa-users mr-2"></i> Users
+                    </a>
+                    <a href="/admin/rides" class="text-gray-300 hover:bg-gray-800 block py-2 px-4 rounded">
+                        <i class="fas fa-car mr-2"></i> Rides
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Main Content -->
+            <div class="flex-1 p-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">All Users</h2>
+                
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b bg-gray-50">
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">ID</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Phone</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Name</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Role</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Verified</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Rating</th>
+                                    <th class="text-left py-3 px-4 font-semibold text-gray-700">Last Login</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <% if (users && users.length > 0) { %>
+                                    <% users.forEach(user => { %>
+                                        <tr class="border-b hover:bg-gray-50">
+                                            <td class="py-3 px-4"><%= user.id %></td>
+                                            <td class="py-3 px-4"><%= user.phone %></td>
+                                            <td class="py-3 px-4"><%= user.full_name || 'N/A' %></td>
+                                            <td class="py-3 px-4">
+                                                <span class="px-2 py-1 rounded text-sm <%= user.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800' %>">
+                                                    <%= user.role %>
+                                                </span>
+                                            </td>
+                                            <td class="py-3 px-4">
+                                                <%= user.phone_verified ? 
+                                                    '<span class="text-green-600"><i class="fas fa-check-circle"></i> Yes</span>' : 
+                                                    '<span class="text-gray-400"><i class="fas fa-times-circle"></i> No</span>' 
+                                                %>
+                                            </td>
+                                            <td class="py-3 px-4">
+                                                <div class="flex items-center">
+                                                    <span class="text-yellow-500 mr-1"><i class="fas fa-star"></i></span>
+                                                    <%= user.rating || 0 %>
+                                                </div>
+                                            </td>
+                                            <td class="py-3 px-4"><%= user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never' %></td>
+                                        </tr>
+                                    <% }) %>
+                                <% } else { %>
+                                    <tr>
+                                        <td colspan="7" class="py-4 text-center text-gray-500">No users found</td>
+                                    </tr>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
