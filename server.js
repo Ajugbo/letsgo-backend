@@ -9,6 +9,7 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Set view engine
 app.set('view engine', 'ejs');
@@ -27,20 +28,62 @@ app.get('/', (req, res) => {
   res.json({ message: 'Welcome to LetsGo API' });
 });
 
+// Admin Login Page
+app.get('/admin/login', (req, res) => {
+  res.render('login', { error: null });
+});
+
+// Admin Login Handler
+app.post('/admin/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const pool = require('./config/database');
+    
+    const result = await pool.query(
+      'SELECT * FROM users WHERE phone = $1 AND role = $2',
+      [username, 'admin']
+    );
+    
+    if (result.rows.length > 0) {
+      const user = result.rows[0];
+      if (password === 'admin123') {
+        req.session.adminId = user.id;
+        req.session.isAdmin = true;
+        return res.redirect('/admin');
+      }
+    }
+    
+    res.render('login', { error: 'Invalid credentials' });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.render('login', { error: 'Login failed' });
+  }
+});
+
+// Admin Logout
+app.get('/admin/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/admin/login');
+});
+
+// Middleware to protect admin routes
+const requireAdmin = (req, res, next) => {
+  if (req.session && req.session.isAdmin) {
+    return next();
+  }
+  res.redirect('/admin/login');
+};
+
 // Admin Dashboard Route
-app.get('/admin', async (req, res) => {
+app.get('/admin', requireAdmin, async (req, res) => {
   try {
     const pool = require('./config/database');
     
-    // Get stats from database
     const totalUsers = await pool.query('SELECT COUNT(*) FROM users');
     const totalRides = await pool.query('SELECT COUNT(*) FROM rides');
     const totalWallets = await pool.query('SELECT COUNT(*) FROM wallets');
-    
-    // Get recent users
     const users = await pool.query('SELECT * FROM users ORDER BY id DESC LIMIT 10');
     
-    // Get chart data - Users per day (last 7 days)
     const userGrowth = await pool.query(`
       SELECT DATE(created_at) as date, COUNT(*) as count 
       FROM users 
@@ -49,7 +92,6 @@ app.get('/admin', async (req, res) => {
       ORDER BY date
     `);
     
-    // Get chart data - Rides per day (last 7 days)
     const rideData = await pool.query(`
       SELECT DATE(created_at) as date, COUNT(*) as count 
       FROM rides 
@@ -58,7 +100,6 @@ app.get('/admin', async (req, res) => {
       ORDER BY date
     `);
     
-    // Get revenue data (last 7 days)
     const revenueData = await pool.query(`
       SELECT DATE(created_at) as date, SUM(fare) as total 
       FROM rides 
@@ -67,7 +108,6 @@ app.get('/admin', async (req, res) => {
       ORDER BY date
     `);
     
-    // Format chart data
     const formatDate = (dateStr) => {
       const date = new Date(dateStr);
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -82,7 +122,6 @@ app.get('/admin', async (req, res) => {
       revenueData: revenueData.rows.map(row => parseFloat(row.total || 0))
     };
     
-    // Render admin dashboard
     res.render('admin', {
       stats: {
         totalUsers: totalUsers.rows[0].count,
@@ -94,15 +133,12 @@ app.get('/admin', async (req, res) => {
     });
   } catch (error) {
     console.error('Admin dashboard error:', error);
-    res.status(500).json({ 
-      error: error.message,
-      stack: error.stack 
-    });
+    res.status(500).json({ error: error.message, stack: error.stack });
   }
 });
 
 // Users List Page
-app.get('/admin/users', async (req, res) => {
+app.get('/admin/users', requireAdmin, async (req, res) => {
   try {
     const pool = require('./config/database');
     const users = await pool.query('SELECT * FROM users ORDER BY id DESC');
@@ -114,7 +150,7 @@ app.get('/admin/users', async (req, res) => {
 });
 
 // Rides List Page
-app.get('/admin/rides', async (req, res) => {
+app.get('/admin/rides', requireAdmin, async (req, res) => {
   try {
     const pool = require('./config/database');
     const rides = await pool.query('SELECT * FROM rides ORDER BY id DESC');
@@ -126,7 +162,7 @@ app.get('/admin/rides', async (req, res) => {
 });
 
 // Wallets List Page
-app.get('/admin/wallets', async (req, res) => {
+app.get('/admin/wallets', requireAdmin, async (req, res) => {
   try {
     const pool = require('./config/database');
     const wallets = await pool.query('SELECT * FROM wallets ORDER BY id DESC');
