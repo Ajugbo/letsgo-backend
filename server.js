@@ -32,22 +32,72 @@ app.get('/admin', async (req, res) => {
   try {
     const pool = require('./config/database');
     
+    // Get stats from database
     const totalUsers = await pool.query('SELECT COUNT(*) FROM users');
     const totalRides = await pool.query('SELECT COUNT(*) FROM rides');
     const totalWallets = await pool.query('SELECT COUNT(*) FROM wallets');
+    
+    // Get recent users
     const users = await pool.query('SELECT * FROM users ORDER BY id DESC LIMIT 10');
     
+    // Get chart data - Users per day (last 7 days)
+    const userGrowth = await pool.query(`
+      SELECT DATE(created_at) as date, COUNT(*) as count 
+      FROM users 
+      WHERE created_at >= NOW() - INTERVAL '7 days'
+      GROUP BY DATE(created_at)
+      ORDER BY date
+    `);
+    
+    // Get chart data - Rides per day (last 7 days)
+    const rideData = await pool.query(`
+      SELECT DATE(created_at) as date, COUNT(*) as count 
+      FROM rides 
+      WHERE created_at >= NOW() - INTERVAL '7 days'
+      GROUP BY DATE(created_at)
+      ORDER BY date
+    `);
+    
+    // Get revenue data (last 7 days)
+    const revenueData = await pool.query(`
+      SELECT DATE(created_at) as date, SUM(fare) as total 
+      FROM rides 
+      WHERE created_at >= NOW() - INTERVAL '7 days' AND fare IS NOT NULL
+      GROUP BY DATE(created_at)
+      ORDER BY date
+    `);
+    
+    // Format chart data
+    const formatDate = (dateStr) => {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+    
+    const chartData = {
+      userLabels: userGrowth.rows.map(row => formatDate(row.date)),
+      userData: userGrowth.rows.map(row => parseInt(row.count)),
+      rideLabels: rideData.rows.map(row => formatDate(row.date)),
+      rideData: rideData.rows.map(row => parseInt(row.count)),
+      revenueLabels: revenueData.rows.map(row => formatDate(row.date)),
+      revenueData: revenueData.rows.map(row => parseFloat(row.total || 0))
+    };
+    
+    // Render admin dashboard
     res.render('admin', {
       stats: {
         totalUsers: totalUsers.rows[0].count,
         totalRides: totalRides.rows[0].count,
         totalWallets: totalWallets.rows[0].count
       },
-      users: users.rows
+      users: users.rows,
+      chartData: chartData
     });
   } catch (error) {
     console.error('Admin dashboard error:', error);
-    res.status(500).json({ error: error.message, stack: error.stack });
+    res.status(500).json({ 
+      error: error.message,
+      stack: error.stack 
+    });
   }
 });
 
