@@ -1,54 +1,53 @@
+const session = require('express-session');
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
-const authRoutes = require('./routes/auth');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.use('/api/auth', authRoutes);
+// Set view engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+// Session configuration
+app.use(session({
+  secret: process.env.JWT_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false }
+}));
 
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to LetsGo API' });
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log('Server running on port ' + PORT);
-});
-
-// Add after your existing routes
-const { adminOptions, AdminJS, AdminJSExpress } = require('./admin');
-
-// Simple resource for users table
-const { Pool } = require('pg');
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
-// Add admin routes
-app.use('/admin', async (req, res, next) => {
+// Admin Dashboard Route
+app.get('/admin', async (req, res) => {
   try {
-    // Simple dashboard showing database stats
-    const users = await pool.query('SELECT COUNT(*) FROM users');
-    const wallets = await pool.query('SELECT COUNT(*) FROM wallets');
-    const rides = await pool.query('SELECT COUNT(*) FROM rides');
+    const pool = require('./config/database');
     
-    res.json({
-      message: 'LetsGo Admin Dashboard',
+    // Get stats from database
+    const totalUsers = await pool.query('SELECT COUNT(*) FROM users');
+    const totalRides = await pool.query('SELECT COUNT(*) FROM rides');
+    const totalWallets = await pool.query('SELECT COUNT(*) FROM wallets');
+    
+    // Render admin dashboard
+    res.render('admin', {
       stats: {
-        totalUsers: users.rows[0].count,
-        totalWallets: wallets.rows[0].count,
-        totalRides: rides.rows[0].count,
-      },
-      tables: {
-        users: '/admin/resources/users',
-        wallets: '/admin/resources/wallets',
-        otp_codes: '/admin/resources/otp_codes',
+        totalUsers: totalUsers.rows[0].count,
+        totalRides: totalRides.rows[0].count,
+        totalWallets: totalWallets.rows[0].count
       }
     });
   } catch (error) {
+    console.error('Admin dashboard error:', error);
     res.status(500).json({ error: error.message });
   }
+});
+app.listen(PORT, () => {
+  console.log('Server running on port ' + PORT);
 });
