@@ -23,9 +23,105 @@ app.use(session({
   cookie: { secure: false }
 }));
 
-// Root Route
+// Customer Landing Page
+app.get('/customer', (req, res) => {
+  res.render('customer/index');
+});
+
 app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to LetsGo API' });
+  res.redirect('/customer');
+});
+
+// Customer Login Page
+app.get('/customer/login', (req, res) => {
+  res.render('customer/login', { error: null });
+});
+
+// Customer Signup Page
+app.get('/customer/signup', (req, res) => {
+  res.render('customer/signup', { error: null });
+});
+
+// Customer Login Handler
+app.post('/customer/login', async (req, res) => {
+  try {
+    const { phone, password } = req.body;
+    const pool = require('./config/database');
+    
+    const result = await pool.query(
+      'SELECT * FROM users WHERE phone = $1',
+      [phone]
+    );
+    
+    if (result.rows.length > 0) {
+      const user = result.rows[0];
+      if (password === 'password123') { 
+        req.session.userId = user.id;
+        req.session.user = user;
+        return res.redirect('/customer/dashboard');
+      }
+    }
+    
+    res.render('customer/login', { error: 'Invalid credentials' });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.render('customer/login', { error: 'Login failed' });
+  }
+});
+
+// Customer Signup Handler
+app.post('/customer/signup', async (req, res) => {
+  try {
+    const { full_name, phone, email, password } = req.body;
+    const pool = require('./config/database');
+    
+    const existing = await pool.query('SELECT * FROM users WHERE phone = $1', [phone]);
+    if (existing.rows.length > 0) {
+      return res.render('customer/signup', { error: 'Phone number already registered' });
+    }
+    
+    const result = await pool.query(
+      `INSERT INTO users (full_name, phone, email, role, phone_verified, created_at) 
+       VALUES ($1, $2, $3, 'user', true, NOW()) RETURNING *`,
+      [full_name, phone, email || null]
+    );
+    
+    const user = result.rows[0];
+    
+    await pool.query(
+      `INSERT INTO wallets (user_id, balance, bank_verified) VALUES ($1, 0.00, false)`,
+      [user.id]
+    );
+    
+    req.session.userId = user.id;
+    req.session.user = user;
+    res.redirect('/customer/dashboard');
+  } catch (error) {
+    console.error('Signup error:', error);
+    res.render('customer/signup', { error: 'Signup failed' });
+  }
+});
+
+// Customer Dashboard
+app.get('/customer/dashboard', (req, res) => {
+  if (!req.session.userId) {
+    return res.redirect('/customer/login');
+  }
+  res.render('customer/dashboard', { user: req.session.user });
+});
+
+// Book Ride Page (Protected)
+app.get('/customer/book-ride', (req, res) => {
+  if (!req.session.userId) {
+    return res.redirect('/customer/login');
+  }
+  res.render('customer/book-ride', { user: req.session.user });
+});
+
+// Customer Logout
+app.get('/customer/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/customer');
 });
 
 // Admin Login Page

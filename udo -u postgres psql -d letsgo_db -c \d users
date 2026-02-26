@@ -1,0 +1,10 @@
+           List of relations
+ Schema |   Name    | Type  |   Owner   
+--------+-----------+-------+-----------
+ public | otp_codes | table | codespace
+ public | rides     | table | postgres
+ public | users     | table | codespace
+ public | vehicles  | table | postgres
+ public | wallets   | table | codespace
+(5 rows)
+

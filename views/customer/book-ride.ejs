@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book a Ride - LetsGo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg fixed w-full z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <a href="/customer" class="text-2xl font-bold text-blue-600">
+                    <i class="fas fa-car-side mr-2"></i>LetsGo
+                </a>
+                <div class="flex items-center space-x-4">
+                    <a href="/customer/dashboard" class="text-gray-700 hover:text-blue-600">
+                        <i class="fas fa-user mr-1"></i><%= user.full_name || 'My Account' %>
+                    </a>
+                    <a href="/customer/logout" class="text-red-600 hover:text-red-800">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Booking Form -->
+    <div class="max-w-4xl mx-auto px-4 py-24">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8">🚗 Book Your Ride</h1>
+
+        <div class="bg-white rounded-2xl shadow-xl p-8">
+            <!-- Pickup & Dropoff -->
+            <div class="grid md:grid-cols-2 gap-6 mb-8">
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-map-marker-alt text-green-500 mr-2"></i>Pickup Location
+                    </label>
+                    <input type="text" id="pickup" placeholder="Enter pickup address" 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">
+                        <i class="fas fa-map-marker-alt text-red-500 mr-2"></i>Dropoff Location
+                    </label>
+                    <input type="text" id="dropoff" placeholder="Enter destination" 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <!-- Seat Selection (YOUR PREMIUM FEATURE!) -->
+            <div class="mb-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">
+                    <i class="fas fa-chair mr-2"></i>Select Seats for Privacy
+                </h3>
+                <p class="text-gray-600 mb-4">Book extra seats for more space and privacy. Perfect for business calls or personal comfort!</p>
+                
+                <div class="flex items-center space-x-4 mb-4">
+                    <button onclick="setSeats(1)" id="seat-1" class="seat-btn bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
+                        1 Seat <span class="text-sm opacity-80">(Standard)</span>
+                    </button>
+                    <button onclick="setSeats(2)" id="seat-2" class="seat-btn bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition">
+                        2 Seats <span class="text-sm opacity-80">(+50%)</span>
+                    </button>
+                    <button onclick="setSeats(4)" id="seat-4" class="seat-btn bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition">
+                        4 Seats <span class="text-sm opacity-80">(VIP Privacy)</span>
+                    </button>
+                </div>
+                
+                <div class="text-sm text-gray-500">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    <strong>How it works:</strong> Fare = Base Price × Seats. Book all 4 seats for complete privacy!
+                </div>
+            </div>
+
+            <!-- Fare Estimate -->
+            <div class="mb-8 p-4 bg-gray-100 rounded-lg">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-700 font-semibold">Estimated Fare:</span>
+                    <span class="text-3xl font-bold text-blue-600">₦<span id="fare-estimate">1,500</span></span>
+                </div>
+                <p class="text-sm text-gray-500 mt-2">* Final fare may vary based on traffic and route</p>
+            </div>
+
+            <!-- Payment Method -->
+            <div class="mb-8">
+                <label class="block text-gray-700 font-semibold mb-2">Payment Method</label>
+                <div class="flex space-x-4">
+                    <label class="flex items-center space-x-2">
+                        <input type="radio" name="payment" value="wallet" checked class="text-blue-600">
+                        <span><i class="fas fa-wallet mr-1"></i>LetsGo Wallet</span>
+                    </label>
+                    <label class="flex items-center space-x-2">
+                        <input type="radio" name="payment" value="card" class="text-blue-600">
+                        <span><i class="fas fa-credit-card mr-1"></i>Card</span>
+                    </label>
+                    <label class="flex items-center space-x-2">
+                        <input type="radio" name="payment" value="cash" class="text-blue-600">
+                        <span><i class="fas fa-money-bill mr-1"></i>Cash</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Book Button -->
+            <button onclick="bookRide()" class="w-full bg-blue-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-blue-700 transition shadow-lg">
+                <i class="fas fa-car mr-2"></i>Book Ride Now - ₦<span id="book-fare">1,500</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Seat selection logic
+        let selectedSeats = 1;
+        const baseFare = 1500;
+        
+        function setSeats(count) {
+            selectedSeats = count;
+            
+            // Update button styles
+            document.querySelectorAll('.seat-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-700');
+            });
+            document.getElementById(`seat-${count}`).classList.remove('bg-gray-200', 'text-gray-700');
+            document.getElementById(`seat-${count}`).classList.add('bg-blue-600', 'text-white');
+            
+            // Update fare display
+            const fare = baseFare * count;
+            document.getElementById('fare-estimate').textContent = fare.toLocaleString();
+            document.getElementById('book-fare').textContent = fare.toLocaleString();
+        }
+        
+        function bookRide() {
+            const pickup = document.getElementById('pickup').value;
+            const dropoff = document.getElementById('dropoff').value;
+            
+            if (!pickup || !dropoff) {
+                alert('Please enter both pickup and dropoff locations');
+                return;
+            }
+            
+            const fare = baseFare * selectedSeats;
+            
+            // Show confirmation
+            alert(`🎉 Ride Booked!\n\n📍 Pickup: ${pickup}\n🏁 Dropoff: ${dropoff}\n🪑 Seats: ${selectedSeats}\n💰 Fare: ₦${fare.toLocaleString()}\n\nYour driver will arrive in 3-5 minutes!`);
+            
+            // In production, this would send a POST request to /api/rides
+            // fetch('/api/rides', { method: 'POST', body: JSON.stringify({ pickup, dropoff, seats: selectedSeats, fare }) })
+        }
+        
+        // Initialize with 1 seat
+        setSeats(1);
+    </script>
+</body>
+</html>
