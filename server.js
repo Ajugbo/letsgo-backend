@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const cors = require('cors');
 const session = require('express-session');
 const path = require('path');
@@ -23,13 +24,14 @@ app.use(session({
   cookie: { secure: false }
 }));
 
+// Root Route - Redirect to customer
+app.get('/', (req, res) => {
+  res.redirect('/customer');
+});
+
 // Customer Landing Page
 app.get('/customer', (req, res) => {
   res.render('customer/index');
-});
-
-app.get('/', (req, res) => {
-  res.redirect('/customer');
 });
 
 // Customer Login Page
@@ -116,6 +118,58 @@ app.get('/customer/book-ride', (req, res) => {
     return res.redirect('/customer/login');
   }
   res.render('customer/book-ride', { user: req.session.user });
+});
+
+// Wallet Page (Protected)
+app.get('/customer/wallet', async (req, res) => {
+  if (!req.session.userId) {
+    return res.redirect('/customer/login');
+  }
+  
+  try {
+    const pool = require('./config/database');
+    
+    // Get user's wallet
+    let wallet = { balance: 0 };
+    try {
+      const walletResult = await pool.query(
+        'SELECT * FROM wallets WHERE user_id = $1',
+        [req.session.userId]
+      );
+      wallet = walletResult.rows[0] || { balance: 0 };
+    } catch (e) {
+      console.log('Wallet query error:', e.message);
+    }
+    
+    // Get transaction history
+    let transactions = [];
+    try {
+      const txnResult = await pool.query(
+        'SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 10',
+        [req.session.userId]
+      );
+      transactions = txnResult.rows;
+    } catch (e) {
+      console.log('Transactions query error:', e.message);
+    }
+    
+    res.render('customer/wallet', { 
+      user: req.session.user, 
+      wallet: wallet,
+      transactions: transactions,
+      error: null,
+      success: null
+    });
+  } catch (error) {
+    console.error('Wallet route error:', error);
+    res.render('customer/wallet', { 
+      user: req.session.user, 
+      wallet: { balance: 0 },
+      transactions: [],
+      error: 'Error loading wallet',
+      success: null
+    });
+  }
 });
 
 // Customer Logout
@@ -321,5 +375,7 @@ app.use('/api/auth', require('./routes/auth'));
 // Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🚀 Customer: http://localhost:${PORT}/customer`);
+  console.log(`🔐 Admin: http://localhost:${PORT}/admin/login`);
 });

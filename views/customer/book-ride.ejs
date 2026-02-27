@@ -6,6 +6,12 @@
     <title>Book a Ride - LetsGo</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Leaflet CSS for Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { height: 400px; border-radius: 12px; }
+        .leaflet-marker-icon { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)); }
+    </style>
 </head>
 <body class="bg-gray-50">
     <!-- Navigation -->
@@ -28,129 +34,225 @@
     </nav>
 
     <!-- Booking Form -->
-    <div class="max-w-4xl mx-auto px-4 py-24">
+    <div class="max-w-6xl mx-auto px-4 py-24">
         <h1 class="text-3xl font-bold text-gray-800 mb-8">🚗 Book Your Ride</h1>
 
-        <div class="bg-white rounded-2xl shadow-xl p-8">
-            <!-- Pickup & Dropoff -->
-            <div class="grid md:grid-cols-2 gap-6 mb-8">
-                <div>
-                    <label class="block text-gray-700 font-semibold mb-2">
-                        <i class="fas fa-map-marker-alt text-green-500 mr-2"></i>Pickup Location
-                    </label>
-                    <input type="text" id="pickup" placeholder="Enter pickup address" 
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+        <div class="grid md:grid-cols-2 gap-8">
+            <!-- Left: Form -->
+            <div class="bg-white rounded-2xl shadow-xl p-8">
+                <!-- Pickup & Dropoff -->
+                <div class="space-y-4 mb-6">
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-map-marker-alt text-green-500 mr-2"></i>Pickup Location
+                        </label>
+                        <input type="text" id="pickup" placeholder="Click on map or enter address" 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-semibold mb-2">
+                            <i class="fas fa-map-marker-alt text-red-500 mr-2"></i>Dropoff Location
+                        </label>
+                        <input type="text" id="dropoff" placeholder="Click on map or enter address" 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-gray-700 font-semibold mb-2">
-                        <i class="fas fa-map-marker-alt text-red-500 mr-2"></i>Dropoff Location
-                    </label>
-                    <input type="text" id="dropoff" placeholder="Enter destination" 
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+
+                <!-- Seat Selection -->
+                <div class="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+                    <h3 class="text-lg font-bold text-gray-800 mb-3">
+                        <i class="fas fa-chair mr-2"></i>Select Seats
+                    </h3>
+                    <div class="flex items-center space-x-3 mb-3">
+                        <button onclick="setSeats(1)" id="seat-1" class="seat-btn bg-blue-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-blue-700 transition">
+                            1 Seat
+                        </button>
+                        <button onclick="setSeats(2)" id="seat-2" class="seat-btn bg-gray-200 text-gray-700 px-5 py-2 rounded-lg font-semibold hover:bg-gray-300 transition">
+                            2 Seats
+                        </button>
+                        <button onclick="setSeats(4)" id="seat-4" class="seat-btn bg-gray-200 text-gray-700 px-5 py-2 rounded-lg font-semibold hover:bg-gray-300 transition">
+                            4 Seats (VIP)
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-500">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Fare = ₦<span id="base-fare">500</span>/km × Distance × Seats
+                    </p>
                 </div>
+
+                <!-- Fare Estimate -->
+                <div class="mb-6 p-4 bg-gray-100 rounded-lg">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-700 font-semibold">Estimated Fare:</span>
+                        <span class="text-2xl font-bold text-blue-600">₦<span id="fare-estimate">500</span></span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">Distance: <span id="distance-display">1</span> km</p>
+                </div>
+
+                <!-- Payment Method -->
+                <div class="mb-6">
+                    <label class="block text-gray-700 font-semibold mb-2">Payment Method</label>
+                    <div class="flex space-x-4">
+                        <label class="flex items-center space-x-2">
+                            <input type="radio" name="payment" value="wallet" checked class="text-blue-600">
+                            <span><i class="fas fa-wallet mr-1"></i>Wallet</span>
+                        </label>
+                        <label class="flex items-center space-x-2">
+                            <input type="radio" name="payment" value="card" class="text-blue-600">
+                            <span><i class="fas fa-credit-card mr-1"></i>Card</span>
+                        </label>
+                        <label class="flex items-center space-x-2">
+                            <input type="radio" name="payment" value="cash" class="text-blue-600">
+                            <span><i class="fas fa-money-bill mr-1"></i>Cash</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Book Button -->
+                <button onclick="bookRide()" class="w-full bg-blue-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-blue-700 transition shadow-lg">
+                    <i class="fas fa-car mr-2"></i>Book Ride - ₦<span id="book-fare">500</span>
+                </button>
             </div>
 
-            <!-- Seat Selection (YOUR PREMIUM FEATURE!) -->
-            <div class="mb-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">
-                    <i class="fas fa-chair mr-2"></i>Select Seats for Privacy
+            <!-- Right: Map -->
+            <div class="bg-white rounded-2xl shadow-xl p-4">
+                <h3 class="text-lg font-bold text-gray-800 mb-4">
+                    <i class="fas fa-map mr-2"></i>Select Locations
                 </h3>
-                <p class="text-gray-600 mb-4">Book extra seats for more space and privacy. Perfect for business calls or personal comfort!</p>
-                
-                <div class="flex items-center space-x-4 mb-4">
-                    <button onclick="setSeats(1)" id="seat-1" class="seat-btn bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-                        1 Seat <span class="text-sm opacity-80">(Standard)</span>
-                    </button>
-                    <button onclick="setSeats(2)" id="seat-2" class="seat-btn bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition">
-                        2 Seats <span class="text-sm opacity-80">(+50%)</span>
-                    </button>
-                    <button onclick="setSeats(4)" id="seat-4" class="seat-btn bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300 transition">
-                        4 Seats <span class="text-sm opacity-80">(VIP Privacy)</span>
-                    </button>
-                </div>
-                
-                <div class="text-sm text-gray-500">
-                    <i class="fas fa-info-circle mr-1"></i>
-                    <strong>How it works:</strong> Fare = Base Price × Seats. Book all 4 seats for complete privacy!
+                <div id="map"></div>
+                <div class="mt-4 flex justify-between text-sm text-gray-600">
+                    <span><i class="fas fa-circle text-green-500 mr-1"></i>Click for Pickup</span>
+                    <span><i class="fas fa-circle text-red-500 mr-1"></i>Click for Dropoff</span>
                 </div>
             </div>
-
-            <!-- Fare Estimate -->
-            <div class="mb-8 p-4 bg-gray-100 rounded-lg">
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-700 font-semibold">Estimated Fare:</span>
-                    <span class="text-3xl font-bold text-blue-600">₦<span id="fare-estimate">1,500</span></span>
-                </div>
-                <p class="text-sm text-gray-500 mt-2">* Final fare may vary based on traffic and route</p>
-            </div>
-
-            <!-- Payment Method -->
-            <div class="mb-8">
-                <label class="block text-gray-700 font-semibold mb-2">Payment Method</label>
-                <div class="flex space-x-4">
-                    <label class="flex items-center space-x-2">
-                        <input type="radio" name="payment" value="wallet" checked class="text-blue-600">
-                        <span><i class="fas fa-wallet mr-1"></i>LetsGo Wallet</span>
-                    </label>
-                    <label class="flex items-center space-x-2">
-                        <input type="radio" name="payment" value="card" class="text-blue-600">
-                        <span><i class="fas fa-credit-card mr-1"></i>Card</span>
-                    </label>
-                    <label class="flex items-center space-x-2">
-                        <input type="radio" name="payment" value="cash" class="text-blue-600">
-                        <span><i class="fas fa-money-bill mr-1"></i>Cash</span>
-                    </label>
-                </div>
-            </div>
-
-            <!-- Book Button -->
-            <button onclick="bookRide()" class="w-full bg-blue-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-blue-700 transition shadow-lg">
-                <i class="fas fa-car mr-2"></i>Book Ride Now - ₦<span id="book-fare">1,500</span>
-            </button>
         </div>
     </div>
 
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Seat selection logic
-        let selectedSeats = 1;
-        const baseFare = 1500;
+        // Initialize map (centered on Lagos, Nigeria)
+        const map = L.map('map').setView([9.0765, 7.3986], 12);
         
+        // Add OpenStreetMap tiles (free!)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Icons
+        const pickupIcon = L.divIcon({
+            html: '<i class="fas fa-circle text-green-500 text-2xl"></i>',
+            className: 'custom-icon',
+            iconSize: [24, 24]
+        });
+
+        const dropoffIcon = L.divIcon({
+            html: '<i class="fas fa-circle text-red-500 text-2xl"></i>',
+            className: 'custom-icon',
+            iconSize: [24, 24]
+        });
+
+        let pickupMarker = null;
+        let dropoffMarker = null;
+        let pickupLocation = null;
+        let dropoffLocation = null;
+        let selectedSeats = 1;
+        const baseFarePerKm = 500; // ₦500 per km
+
+        // Map click handler
+        let clickMode = 'pickup'; // Toggle between pickup and dropoff
+        
+        map.on('click', function(e) {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+
+            if (clickMode === 'pickup') {
+                if (pickupMarker) map.removeLayer(pickupMarker);
+                pickupMarker = L.marker([lat, lng], { icon: pickupIcon }).addTo(map);
+                pickupLocation = { lat, lng };
+                document.getElementById('pickup').value = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                clickMode = 'dropoff';
+            } else {
+                if (dropoffMarker) map.removeLayer(dropoffMarker);
+                dropoffMarker = L.marker([lat, lng], { icon: dropoffIcon }).addTo(map);
+                dropoffLocation = { lat, lng };
+                document.getElementById('dropoff').value = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                clickMode = 'pickup';
+                
+                // Calculate distance and fare
+                calculateFare();
+            }
+        });
+
+        // Calculate distance between two points (Haversine formula)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Calculate fare based on distance and seats
+        function calculateFare() {
+            if (pickupLocation && dropoffLocation) {
+                const distance = calculateDistance(
+                    pickupLocation.lat, pickupLocation.lng,
+                    dropoffLocation.lat, dropoffLocation.lng
+                );
+                
+                const fare = Math.round(baseFarePerKm * distance * selectedSeats);
+                
+                document.getElementById('distance-display').textContent = distance.toFixed(1);
+                document.getElementById('fare-estimate').textContent = fare.toLocaleString();
+                document.getElementById('book-fare').textContent = fare.toLocaleString();
+                document.getElementById('base-fare').textContent = baseFarePerKm;
+                
+                // Draw route line
+                if (window.routeLine) map.removeLayer(window.routeLine);
+                window.routeLine = L.polyline([
+                    [pickupLocation.lat, pickupLocation.lng],
+                    [dropoffLocation.lat, dropoffLocation.lng]
+                ], { color: 'blue', weight: 4, opacity: 0.6 }).addTo(map);
+            }
+        }
+
+        // Seat selection
         function setSeats(count) {
             selectedSeats = count;
-            
-            // Update button styles
             document.querySelectorAll('.seat-btn').forEach(btn => {
                 btn.classList.remove('bg-blue-600', 'text-white');
                 btn.classList.add('bg-gray-200', 'text-gray-700');
             });
             document.getElementById(`seat-${count}`).classList.remove('bg-gray-200', 'text-gray-700');
             document.getElementById(`seat-${count}`).classList.add('bg-blue-600', 'text-white');
-            
-            // Update fare display
-            const fare = baseFare * count;
-            document.getElementById('fare-estimate').textContent = fare.toLocaleString();
-            document.getElementById('book-fare').textContent = fare.toLocaleString();
+            calculateFare();
         }
-        
+
+        // Book ride
         function bookRide() {
             const pickup = document.getElementById('pickup').value;
             const dropoff = document.getElementById('dropoff').value;
+            const fare = document.getElementById('book-fare').textContent;
             
             if (!pickup || !dropoff) {
-                alert('Please enter both pickup and dropoff locations');
+                alert('Please select both pickup and dropoff locations on the map');
                 return;
             }
             
-            const fare = baseFare * selectedSeats;
+            const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
             
             // Show confirmation
-            alert(`🎉 Ride Booked!\n\n📍 Pickup: ${pickup}\n🏁 Dropoff: ${dropoff}\n🪑 Seats: ${selectedSeats}\n💰 Fare: ₦${fare.toLocaleString()}\n\nYour driver will arrive in 3-5 minutes!`);
+            alert(`🎉 Ride Booked!\n\n📍 Pickup: ${pickup}\n🏁 Dropoff: ${dropoff}\n🪑 Seats: ${selectedSeats}\n💰 Fare: ₦${fare}\n💳 Payment: ${paymentMethod}\n\nYour driver will arrive in 3-5 minutes!`);
             
-            // In production, this would send a POST request to /api/rides
-            // fetch('/api/rides', { method: 'POST', body: JSON.stringify({ pickup, dropoff, seats: selectedSeats, fare }) })
+            // TODO: Send to backend API
+            // fetch('/api/rides', { method: 'POST', body: JSON.stringify({ ... }) })
         }
-        
-        // Initialize with 1 seat
+
+        // Initialize
         setSeats(1);
     </script>
 </body>
