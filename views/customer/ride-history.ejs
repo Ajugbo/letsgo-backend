@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ride History - LetsGo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-lg fixed w-full z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="/customer" class="text-2xl font-bold text-blue-600">
+                <i class="fas fa-car-side mr-2"></i>LetsGo
+            </a>
+            <div class="flex items-center space-x-4">
+                <a href="/customer/dashboard" class="text-gray-700 hover:text-blue-600">Dashboard</a>
+                <a href="/customer/wallet" class="text-gray-700 hover:text-blue-600">Wallet</a>
+                <a href="/customer/logout" class="text-red-600">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto px-4 py-24">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8">🚗 My Ride History</h1>
+
+        <% if (rides && rides.length > 0) { %>
+            <div class="space-y-4">
+                <% rides.forEach(ride => { %>
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-sm text-gray-500"><%= new Date(ride.created_at).toLocaleDateString() %></p>
+                                <h3 class="text-lg font-bold text-gray-800">
+                                    <i class="fas fa-map-marker-alt text-green-500 mr-2"></i><%= ride.pickup_location || 'Pickup location' %>
+                                </h3>
+                                <p class="text-gray-600">
+                                    <i class="fas fa-map-marker-alt text-red-500 mr-2"></i><%= ride.dropoff_location || 'Dropoff location' %>
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-2xl font-bold text-blue-600">₦<%= parseFloat(ride.fare || 0).toFixed(2) %></p>
+                                <span class="px-3 py-1 rounded-full text-sm <%= 
+                                    ride.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                    ride.status === 'paid' ? 'bg-blue-100 text-blue-800' :
+                                    'bg-yellow-100 text-yellow-800'
+                                %>">
+                                    <%= ride.status %>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        <% } else { %>
+            <div class="bg-white rounded-xl shadow-lg p-12 text-center">
+                <i class="fas fa-car text-6xl text-gray-300 mb-4"></i>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">No Rides Yet</h2>
+                <p class="text-gray-600 mb-6">Book your first ride to see it here!</p>
+                <a href="/customer/book-ride" class="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700">
+                    <i class="fas fa-car mr-2"></i>Book a Ride
+                </a>
+            </div>
+        <% } %>
+    </div>
+</body>
+</html>

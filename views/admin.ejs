@@ -159,6 +159,7 @@
 
     <script>
         // Safely parse chart data
+        <% var chartData = chartData || {}; %>
         var chartData;
         try {
             chartData = <%- JSON.stringify(chartData) %>;
