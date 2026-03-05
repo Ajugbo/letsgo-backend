@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Dashboard - LetsGo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-lg fixed w-full z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="/driver" class="text-2xl font-bold text-blue-600">
+                <i class="fas fa-car-side mr-2"></i>LetsGo Driver
+            </a>
+            <div class="flex items-center space-x-4">
+                <a href="/driver/dashboard" class="text-blue-600 font-bold">Dashboard</a>
+                <a href="/driver/rides" class="text-gray-700 hover:text-blue-600">Available</a>
+                <a href="/driver/rides-history" class="text-gray-700 hover:text-blue-600">History</a>
+                <a href="/driver/logout" class="text-red-600">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-6xl mx-auto px-4 py-24">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8">👋 Welcome, <%= user.full_name %>!</h1>
+
+        <!-- Driver Status -->
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-800">Your Status</h2>
+                    <p class="text-gray-600"><%= driver ? driver.status : 'Unknown' %></p>
+                </div>
+                <div>
+                    <span class="px-4 py-2 rounded-full text-sm <%= 
+                        driver && driver.status === 'online' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    %>">
+                        <%= driver && driver.status === 'online' ? '🟢 Online' : '⚪ Offline' %>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vehicle Info -->
+        <% if (driver) { %>
+        <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">🚙 Your Vehicle</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-sm text-gray-500">Vehicle Type</p>
+                    <p class="text-gray-800 font-bold"><%= driver.vehicle_type %></p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Model</p>
+                    <p class="text-gray-800 font-bold"><%= driver.vehicle_model %></p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Color</p>
+                    <p class="text-gray-800 font-bold"><%= driver.vehicle_color %></p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">License Plate</p>
+                    <p class="text-gray-800 font-bold"><%= driver.license_plate %></p>
+                </div>
+            </div>
+        </div>
+        <% } %>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <i class="fas fa-star text-4xl text-yellow-500 mb-4"></i>
+                <h3 class="text-2xl font-bold text-gray-800"><%= driver ? driver.rating : '0.00' %></h3>
+                <p class="text-gray-600">Rating</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <i class="fas fa-check-circle text-4xl text-green-500 mb-4"></i>
+                <h3 class="text-2xl font-bold text-gray-800"><%= driver ? driver.total_rides : '0' %></h3>
+                <p class="text-gray-600">Total Rides</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <i class="fas fa-wallet text-4xl text-blue-500 mb-4"></i>
+                <h3 class="text-2xl font-bold text-gray-800">₦0.00</h3>
+                <p class="text-gray-600">Earnings</p>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+            <a href="/driver/rides" class="bg-blue-600 text-white p-6 rounded-xl shadow-lg hover:bg-blue-700 transition text-center">
+                <i class="fas fa-car text-4xl mb-4"></i>
+                <h3 class="text-xl font-bold">View Available Rides</h3>
+                <p class="text-blue-100 mt-2">Accept rides and start earning</p>
+            </a>
+            <a href="/driver/rides-history" class="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition text-center">
+                <i class="fas fa-history text-4xl text-blue-600 mb-4"></i>
+                <h3 class="text-xl font-bold text-gray-800">Ride History</h3>
+                <p class="text-gray-600 mt-2">View completed rides</p>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

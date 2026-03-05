@@ -47,6 +47,32 @@
                                 %>">
                                     <%= ride.status %>
                                 </span>
+                                
+                                <!-- RATING FORM (Inside the loop - ride variable is available here) -->
+                                <% if (ride.status === 'completed' && !ride.rated) { %>
+                                    <div class="mt-4 pt-4 border-t border-gray-200">
+                                        <p class="text-sm text-gray-600 mb-2">Rate this ride:</p>
+                                        <form action="/customer/ride/rate" method="POST" class="flex items-center space-x-2">
+                                            <input type="hidden" name="ride_id" value="<%= ride.id %>">
+                                            <select name="rating" class="border rounded px-2 py-1 text-sm" required>
+                                                <option value="5">⭐⭐⭐⭐⭐</option>
+                                                <option value="4">⭐⭐⭐⭐</option>
+                                                <option value="3">⭐⭐⭐</option>
+                                                <option value="2">⭐⭐</option>
+                                                <option value="1">⭐</option>
+                                            </select>
+                                            <input type="text" name="review" placeholder="Optional review..." class="border rounded px-2 py-1 text-sm flex-1">
+                                            <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded text-sm hover:bg-blue-700">
+                                                Submit
+                                            </button>
+                                        </form>
+                                    </div>
+                                <% } else if (ride.rated) { %>
+                                    <div class="mt-4 pt-4 border-t border-gray-200">
+                                        <p class="text-sm text-green-600"><i class="fas fa-check-circle mr-1"></i> Already Rated</p>
+                                    </div>
+                                <% } %>
+                                
                             </div>
                         </div>
                     </div>

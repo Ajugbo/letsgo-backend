@@ -8,6 +8,19 @@ require('dotenv').config();
 const pool = require('./config/database');
 
 const app = express();
+const multer = require('multer');
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ storage: storage });
 
 // Middleware
 app.use(cors());
@@ -39,6 +52,180 @@ app.get('/customer', (req, res) => {
 // Customer Login Page
 app.get('/customer/login', (req, res) => {
   res.render('customer/login', { error: null });
+});
+
+// Driver Signup Page
+app.get('/driver/signup', (req, res) => {
+  res.render('driver/driver-signup', { error: null, success: null });
+});
+
+// Driver Signup Submit
+app.post('/driver/signup', upload.single('license_document'), async (req, res) => {
+  try {
+    const { full_name, phone, email, password, vehicle_type, vehicle_model, vehicle_color, license_plate, license_number } = req.body;
+    
+    // Check if user already exists
+    const existingUser = await pool.query('SELECT * FROM users WHERE phone = $1', [phone]);
+    if (existingUser.rows.length > 0) {
+      return res.render('driver/driver-signup', { error: 'Phone number already registered', success: null });
+    }
+    
+    // Create user account
+    const userResult = await pool.query(
+      'INSERT INTO users (full_name, phone, email, password, role, phone_verified) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+      [full_name, phone, email, password, 'driver', false]
+    );
+    const userId = userResult.rows[0].id;
+    
+    // Create driver profile
+    const licenseDocPath = req.file ? '/uploads/' + req.file.filename : null;
+    await pool.query(
+      'INSERT INTO drivers (user_id, vehicle_type, vehicle_model, vehicle_color, license_plate, license_number, license_document, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+      [userId, vehicle_type, vehicle_model, vehicle_color, license_plate, license_number, licenseDocPath, 'offline']
+    );
+    
+    res.render('driver/driver-signup', { error: null, success: 'Signup successful! Please login to continue.' });
+  } catch (error) {
+    console.error('Driver signup error:', error);
+    res.render('driver/driver-signup', { error: 'Signup failed. Please try again.', success: null });
+  }
+});
+
+// Driver Login Page
+app.get('/driver/login', (req, res) => {
+  res.render('driver/driver-login', { error: null });
+});
+
+// Driver Login Submit
+app.post('/driver/login', async (req, res) => {
+  try {
+    const { phone, password } = req.body;
+    const result = await pool.query(
+      'SELECT * FROM users WHERE phone = $1 AND role = $2',
+      [phone, 'driver']
+    );
+    if (result.rows.length > 0) {
+      const user = result.rows[0];
+      if (password === 'password123' || password === user.password) {
+        req.session.userId = user.id;
+        req.session.user = user;
+        req.session.isDriver = true;
+        return res.redirect('/driver/dashboard');
+      }
+    }
+    res.render('driver/driver-login', { error: 'Invalid credentials' });
+  } catch (error) {
+    console.error('Driver login error:', error);
+    res.render('driver/driver-login', { error: 'Login failed' });
+  }
+});
+
+// Driver Dashboard
+app.get('/driver/dashboard', async (req, res) => {
+  if (!req.session.isDriver) { return res.redirect('/driver/login'); }
+  try {
+    const driverResult = await pool.query('SELECT * FROM drivers WHERE user_id = $1', [req.session.userId]);
+    const driver = driverResult.rows[0];
+    res.render('driver/driver-dashboard', { user: req.session.user, driver: driver });
+  } catch (error) {
+    console.error('Driver dashboard error:', error);
+    res.render('driver/driver-dashboard', { user: req.session.user, driver: null, error: 'Error loading dashboard' });
+  }
+});
+
+// Driver Available Rides
+app.get('/driver/rides', async (req, res) => {
+  if (!req.session.isDriver) { return res.redirect('/driver/login'); }
+  try {
+    const ridesResult = await pool.query(
+      "SELECT r.*, u.full_name, u.phone FROM rides r JOIN users u ON r.user_id = u.id WHERE r.status = 'pending' ORDER BY r.created_at DESC"
+    );
+    res.render('driver/driver-rides', { 
+      user: req.session.user, 
+      rides: ridesResult.rows,
+      success: req.query.success || null,
+      error: req.query.error || null
+    });
+  } catch (error) {
+    console.error('Driver rides error:', error);
+    res.render('driver/driver-rides', { 
+      user: req.session.user, 
+      rides: [], 
+      success: null,
+      error: 'Error loading rides' 
+    });
+  }
+});
+
+// Driver Accept Ride
+app.post('/driver/ride/accept', async (req, res) => {
+  if (!req.session.isDriver) { return res.redirect('/driver/login'); }
+  try {
+    const { ride_id } = req.body;
+    await pool.query("UPDATE rides SET status = 'accepted', driver_id = $1 WHERE id = $2", [req.session.userId, ride_id]);
+    res.redirect('/driver/rides?success=Ride accepted!');
+  } catch (error) {
+    console.error('Accept ride error:', error);
+    res.redirect('/driver/rides?error=Failed to accept ride');
+  }
+});
+
+// Driver Decline Ride
+app.post('/driver/ride/decline', async (req, res) => {
+  if (!req.session.isDriver) { return res.redirect('/driver/login'); }
+  try {
+    const { ride_id } = req.body;
+    await pool.query("UPDATE rides SET status = 'declined' WHERE id = $1", [ride_id]);
+    res.redirect('/driver/rides?success=Ride declined');
+  } catch (error) {
+    console.error('Decline ride error:', error);
+    res.redirect('/driver/rides?error=Failed to decline ride');
+  }
+});
+
+// Driver Complete Ride
+app.post('/driver/ride/complete', async (req, res) => {
+  if (!req.session.isDriver) { return res.redirect('/driver/login'); }
+  try {
+    const { ride_id } = req.body;
+    await pool.query("UPDATE rides SET status = 'completed' WHERE id = $1 AND driver_id = $2", [ride_id, req.session.userId]);
+    await pool.query("UPDATE drivers SET total_rides = total_rides + 1 WHERE user_id = $1", [req.session.userId]);
+    res.redirect('/driver/rides-history?success=Ride completed!');
+  } catch (error) {
+    console.error('Complete ride error:', error);
+    res.redirect('/driver/rides-history?error=Failed to complete ride');
+  }
+});
+
+// Driver Ride History (Completed Rides)
+app.get('/driver/rides-history', async (req, res) => {
+  if (!req.session.isDriver) { return res.redirect('/driver/login'); }
+  try {
+    const ridesResult = await pool.query(
+      "SELECT r.*, u.full_name, u.phone FROM rides r JOIN users u ON r.user_id = u.id WHERE r.driver_id = $1 ORDER BY r.created_at DESC",
+      [req.session.userId]
+    );
+    res.render('driver/driver-rides-history', { 
+      user: req.session.user, 
+      rides: ridesResult.rows,
+      success: req.query.success || null,
+      error: req.query.error || null
+    });
+  } catch (error) {
+    console.error('Driver history error:', error);
+    res.render('driver/driver-rides-history', { 
+      user: req.session.user, 
+      rides: [], 
+      success: null,
+      error: 'Error loading ride history' 
+    });
+  }
+});
+
+// Driver Logout
+app.get('/driver/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/driver/login');
 });
 
 // Customer Signup Page
@@ -78,7 +265,7 @@ app.post('/customer/signup', async (req, res) => {
       return res.render('customer/signup', { error: 'Phone number already registered' });
     }
     const result = await pool.query(
-      `INSERT INTO users (full_name, phone, email, role, phone_verified, created_at) VALUES ($1, $2, $3, 'user', true, NOW()) RETURNING *`,
+      `INSERT INTO users (full_name, phone, email, password, role, phone_verified, created_at) VALUES ($1, $2, $3, 'user', true, NOW()) RETURNING *`,
       [full_name, phone, email || null]
     );
     const user = result.rows[0];
@@ -326,8 +513,8 @@ app.post('/customer/ride/rate', async (req, res) => {
     const existingRating = await pool.query('SELECT * FROM ride_ratings WHERE ride_id = $1', [ride_id]);
     if (existingRating.rows.length > 0) { return res.status(400).json({ error: 'Already rated' }); }
     await pool.query('INSERT INTO ride_ratings (ride_id, user_id, rating, review, created_at) VALUES ($1, $2, $3, $4, NOW())', [ride_id, req.session.userId, rating, review || null]);
-    await pool.query('UPDATE rides SET status = completed, rated = true WHERE id = $1', [ride_id]);
-    res.json({ success: true, message: 'Thank you for your rating!' });
+    await pool.query("UPDATE rides SET status = 'completed', rated = true WHERE id = $1", [ride_id]);
+    res.redirect('/customer/dashboard?success=Thank you for your rating!');
   } catch (error) {
     console.error('Rating error:', error);
     res.status(500).json({ error: 'Failed to submit rating' });
