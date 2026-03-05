@@ -133,6 +133,57 @@ app.get('/driver/dashboard', async (req, res) => {
   }
 });
 
+// Driver Toggle Status (Online/Offline)
+app.post('/driver/toggle-status', async (req, res) => {
+  if (!req.session.isDriver) { return res.redirect('/driver/login'); }
+  try {
+    const driverResult = await pool.query('SELECT status FROM drivers WHERE user_id = $1', [req.session.userId]);
+    const currentStatus = driverResult.rows[0].status;
+    const newStatus = currentStatus === 'online' ? 'offline' : 'online';
+    await pool.query("UPDATE drivers SET status = $1 WHERE user_id = $2", [newStatus, req.session.userId]);
+    res.json({ success: true, newStatus: newStatus });
+  } catch (error) {
+    console.error('Toggle status error:', error);
+    res.json({ success: false, error: 'Failed to toggle status' });
+  }
+});
+
+// Driver Withdrawal Page
+app.get('/driver/wallet', async (req, res) => {
+  if (!req.session.isDriver) { return res.redirect('/driver/login'); }
+  try {
+    const driverResult = await pool.query('SELECT total_earnings FROM drivers WHERE user_id = $1', [req.session.userId]);
+    const earnings = parseFloat(driverResult.rows[0].total_earnings || 0);
+    const withdrawalsResult = await pool.query('SELECT * FROM driver_withdrawals WHERE driver_id = $1 ORDER BY created_at DESC', [req.session.userId]);
+    res.render('driver/driver-wallet', { 
+      user: req.session.user, 
+      earnings: earnings, 
+      withdrawals: withdrawalsResult.rows 
+    });
+  } catch (error) {
+    console.error('Driver wallet error:', error);
+    res.render('driver/driver-wallet', { user: req.session.user, earnings: 0, withdrawals: [], error: 'Error loading wallet' });
+  }
+});
+
+// Driver Request Withdrawal
+app.post('/driver/withdraw', async (req, res) => {
+  if (!req.session.isDriver) { return res.redirect('/driver/login'); }
+  try {
+    const { amount, bank_name, account_number, account_name } = req.body;
+    const driverResult = await pool.query('SELECT total_earnings FROM drivers WHERE user_id = $1', [req.session.userId]);
+    const earnings = parseFloat(driverResult.rows[0].total_earnings || 0);
+    if (parseFloat(amount) > earnings) {
+      return res.redirect('/driver/wallet?error=Insufficient earnings');
+    }
+    await pool.query('INSERT INTO driver_withdrawals (driver_id, amount, bank_name, account_number, account_name) VALUES ($1, $2, $3, $4, $5)', [req.session.userId, amount, bank_name, account_number, account_name]);
+    res.redirect('/driver/wallet?success=Withdrawal request submitted!');
+  } catch (error) {
+    console.error('Withdrawal error:', error);
+    res.redirect('/driver/wallet?error=Withdrawal failed');
+  }
+});
+
 // Driver Available Rides
 app.get('/driver/rides', async (req, res) => {
   if (!req.session.isDriver) { return res.redirect('/driver/login'); }
@@ -188,8 +239,17 @@ app.post('/driver/ride/complete', async (req, res) => {
   if (!req.session.isDriver) { return res.redirect('/driver/login'); }
   try {
     const { ride_id } = req.body;
+    
+    // Get ride fare
+    const rideResult = await pool.query('SELECT fare FROM rides WHERE id = $1', [ride_id]);
+    const fare = parseFloat(rideResult.rows[0].fare || 0);
+    
+    // Update ride status
     await pool.query("UPDATE rides SET status = 'completed' WHERE id = $1 AND driver_id = $2", [ride_id, req.session.userId]);
-    await pool.query("UPDATE drivers SET total_rides = total_rides + 1 WHERE user_id = $1", [req.session.userId]);
+    
+    // Update driver stats
+    await pool.query("UPDATE drivers SET total_rides = total_rides + 1, total_earnings = total_earnings + $1 WHERE user_id = $2", [fare, req.session.userId]);
+    
     res.redirect('/driver/rides-history?success=Ride completed!');
   } catch (error) {
     console.error('Complete ride error:', error);
@@ -314,6 +374,17 @@ app.get('/customer/logout', (req, res) => {
   res.redirect('/customer');
 });
 
+// Debug: Check Session
+app.get('/debug-session', (req, res) => {
+  res.json({
+    userId: req.session.userId,
+    isDriver: req.session.isDriver,
+    isAdmin: req.session.isAdmin,
+    adminId: req.session.adminId,
+    user: req.session.user
+  });
+});
+
 // Admin Login Page
 app.get('/admin/login', (req, res) => {
   res.render('login', { error: null });
@@ -406,13 +477,55 @@ app.get('/admin/wallets', requireAdmin, async (req, res) => {
   try {
     const wallets = await pool.query('SELECT * FROM wallets ORDER BY id DESC');
     const totalBalance = await pool.query('SELECT SUM(balance) as total FROM wallets');
-    res.render('wallets', {
+    res.render('admin-wallets', {
       wallets: wallets.rows,
       totalBalance: parseFloat(totalBalance.rows[0].total || 0).toFixed(2)
     });
   } catch (error) {
     console.error('Wallets page error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin - View Pending Drivers
+app.get('/admin/drivers', requireAdmin, async (req, res) => {
+  try {
+    const driversResult = await pool.query(`
+      SELECT d.*, u.full_name, u.phone, u.email, u.created_at as user_created
+      FROM drivers d 
+      JOIN users u ON d.user_id = u.id 
+      ORDER BY d.verified ASC, d.created_at DESC
+    `);
+    res.render('admin-drivers', { drivers: driversResult.rows });
+  } catch (error) {
+    console.error('Admin drivers error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin - Approve Driver
+app.post('/admin/driver/approve', requireAdmin, async (req, res) => {
+  try {
+    const { driver_id } = req.body;
+    await pool.query("UPDATE drivers SET verified = true, status = 'offline' WHERE id = $1", [driver_id]);
+    res.redirect('/admin/drivers?success=Driver approved!');
+  } catch (error) {
+    console.error('Approve driver error:', error);
+    res.redirect('/admin/drivers?error=Failed to approve driver');
+  }
+});
+
+// Admin - Reject Driver
+app.post('/admin/driver/reject', requireAdmin, async (req, res) => {
+  try {
+    const { driver_id } = req.body;
+    await pool.query("UPDATE drivers SET verified = false WHERE id = $1", [driver_id]);
+    // Optionally delete the user account
+    // await pool.query("DELETE FROM users WHERE id = (SELECT user_id FROM drivers WHERE id = $1)", [driver_id]);
+    res.redirect('/admin/drivers?success=Driver rejected');
+  } catch (error) {
+    console.error('Reject driver error:', error);
+    res.redirect('/admin/drivers?error=Failed to reject driver');
   }
 });
 
@@ -525,7 +638,17 @@ app.post('/customer/ride/rate', async (req, res) => {
 app.get('/customer/rides', async (req, res) => {
   if (!req.session.userId) { return res.redirect('/customer/login'); }
   try {
-    const ridesResult = await pool.query('SELECT r.*, rr.rating, rr.review FROM rides r LEFT JOIN ride_ratings rr ON r.id = rr.ride_id WHERE r.user_id = $1 ORDER BY r.created_at DESC', [req.session.userId]);
+    const ridesResult = await pool.query(`
+      SELECT r.*, rr.rating, rr.review, 
+             d.vehicle_type, d.vehicle_model, d.vehicle_color, d.license_plate,
+             u.full_name as driver_name, u.phone as driver_phone
+      FROM rides r 
+      LEFT JOIN ride_ratings rr ON r.id = rr.ride_id 
+      LEFT JOIN drivers d ON r.driver_id = d.user_id 
+      LEFT JOIN users u ON r.driver_id = u.id 
+      WHERE r.user_id = $1 
+      ORDER BY r.created_at DESC
+    `, [req.session.userId]);
     res.render('customer/ride-history', { user: req.session.user, rides: ridesResult.rows });
   } catch (error) {
     console.error('Ride history error:', error);

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Verification - Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-lg fixed w-full z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="/admin" class="text-2xl font-bold text-blue-600">
+                <i class="fas fa-shield-alt mr-2"></i>LetsGo Admin
+            </a>
+            <div class="flex items-center space-x-4">
+                <a href="/admin" class="text-gray-700 hover:text-blue-600">Dashboard</a>
+                <a href="/admin/users" class="text-gray-700 hover:text-blue-600">Users</a>
+                <a href="/admin/drivers" class="text-blue-600 font-bold">Drivers</a>
+                <a href="/admin/rides" class="text-gray-700 hover:text-blue-600">Rides</a>
+                <a href="/admin/wallets" class="text-gray-700 hover:text-blue-600">Wallets</a>
+                <a href="/admin/logout" class="text-red-600">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-24">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8">🚗 Driver Verification</h1>
+
+        <% if (locals.success) { %>
+            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                <i class="fas fa-check-circle mr-2"></i><%= success %>
+            </div>
+        <% } %>
+
+        <% if (locals.error) { %>
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <i class="fas fa-exclamation-circle mr-2"></i><%= error %>
+            </div>
+        <% } %>
+
+        <% if (drivers && drivers.length > 0) { %>
+            <div class="space-y-4">
+                <% drivers.forEach(driver => { %>
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-2">
+                                    <h3 class="text-xl font-bold text-gray-800"><%= driver.full_name %></h3>
+                                    <span class="ml-3 px-3 py-1 rounded-full text-sm <%= 
+                                        driver.verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                    %>">
+                                        <%= driver.verified ? '✅ Verified' : '⏳ Pending' %>
+                                    </span>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-4">
+                                    <p><i class="fas fa-phone mr-2"></i><%= driver.phone %></p>
+                                    <p><i class="fas fa-envelope mr-2"></i><%= driver.email || 'N/A' %></p>
+                                    <p><i class="fas fa-car mr-2"></i><%= driver.vehicle_type %> - <%= driver.vehicle_model %></p>
+                                    <p><i class="fas fa-palette mr-2"></i><%= driver.vehicle_color %></p>
+                                    <p><i class="fas fa-id-card mr-2"></i>Plate: <%= driver.license_plate %></p>
+                                    <p><i class="fas fa-license mr-2"></i>License: <%= driver.license_number %></p>
+                                </div>
+
+                                <!-- License Document -->
+                                <% if (driver.license_document) { %>
+                                    <div class="mt-4">
+                                        <p class="text-sm font-bold text-gray-700 mb-2">
+                                            <i class="fas fa-file-image mr-2"></i>Driver's License:
+                                        </p>
+                                        <img src="<%= driver.license_document %>" alt="Driver License" class="max-w-xs rounded-lg border">
+                                    </div>
+                                <% } else { %>
+                                    <p class="text-sm text-red-600"><i class="fas fa-exclamation-triangle mr-2"></i>No license uploaded</p>
+                                <% } %>
+                            </div>
+
+                            <!-- Action Buttons (Only for unverified drivers) -->
+                            <% if (!driver.verified) { %>
+                                <div class="flex flex-col space-y-2 ml-4">
+                                    <form action="/admin/driver/approve" method="POST">
+                                        <input type="hidden" name="driver_id" value="<%= driver.id %>">
+                                        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                                            <i class="fas fa-check mr-2"></i>Approve
+                                        </button>
+                                    </form>
+                                    <form action="/admin/driver/reject" method="POST">
+                                        <input type="hidden" name="driver_id" value="<%= driver.id %>">
+                                        <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700">
+                                            <i class="fas fa-times mr-2"></i>Reject
+                                        </button>
+                                    </form>
+                                </div>
+                            <% } else { %>
+                                <div class="text-green-600 font-bold">
+                                    <i class="fas fa-check-circle"></i> Approved
+                                </div>
+                            <% } %>
+                        </div>
+                    </div>
+                <% }) %>
+            </div>
+        <% } else { %>
+            <div class="bg-white rounded-xl shadow-lg p-12 text-center">
+                <i class="fas fa-user-check text-6xl text-gray-300 mb-4"></i>
+                <h2 class="text-2xl font-bold text-gray-800 mb-2">No Drivers Found</h2>
+                <p class="text-gray-600">No driver registrations yet.</p>
+            </div>
+        <% } %>
+    </div>
+</body>
+</html>

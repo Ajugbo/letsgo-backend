@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallets - Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-lg fixed w-full z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="/admin" class="text-2xl font-bold text-blue-600">
+                <i class="fas fa-shield-alt mr-2"></i>LetsGo Admin
+            </a>
+            <div class="flex items-center space-x-4">
+                <a href="/admin" class="text-gray-700 hover:text-blue-600">Dashboard</a>
+                <a href="/admin/users" class="text-gray-700 hover:text-blue-600">Users</a>
+                <a href="/admin/drivers" class="text-gray-700 hover:text-blue-600">Drivers</a>
+                <a href="/admin/rides" class="text-gray-700 hover:text-blue-600">Rides</a>
+                <a href="/admin/wallets" class="text-blue-600 font-bold">Wallets</a>
+                <a href="/admin/logout" class="text-red-600">Logout</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-24">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8">💰 All Wallets</h1>
+
+        <div class="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl shadow-lg p-6 mb-8 text-white">
+            <p class="text-purple-200 text-sm">Total Balance Across All Wallets</p>
+            <p class="text-4xl font-bold">₦<%= totalBalance || '0.00' %></p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg p-6">
+            <table class="w-full">
+                <thead>
+                    <tr class="border-b bg-gray-50">
+                        <th class="text-left py-3 px-4 font-semibold text-gray-700">ID</th>
+                        <th class="text-left py-3 px-4 font-semibold text-gray-700">User ID</th>
+                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Balance</th>
+                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Bank Verified</th>
+                        <th class="text-left py-3 px-4 font-semibold text-gray-700">Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (wallets && wallets.length > 0) { %>
+                        <% wallets.forEach(wallet => { %>
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="py-3 px-4"><%= wallet.id %></td>
+                                <td class="py-3 px-4"><%= wallet.user_id %></td>
+                                <td class="py-3 px-4 font-bold text-green-600">₦<%= parseFloat(wallet.balance || 0).toFixed(2) %></td>
+                                <td class="py-3 px-4">
+                                    <span class="px-2 py-1 rounded text-sm <%= wallet.bank_verified ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' %>">
+                                        <%= wallet.bank_verified ? '✅ Verified' : '❌ Not Verified' %>
+                                    </span>
+                                </td>
+                                <td class="py-3 px-4 text-sm text-gray-600"><%= new Date(wallet.created_at).toLocaleDateString() %></td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="5" class="py-4 text-center text-gray-500">No wallets found</td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>
