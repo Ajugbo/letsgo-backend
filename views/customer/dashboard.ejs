@@ -1,21 +1,107 @@
-  <i class="fas fa-car mr-2"></i>Book a Ride
-</a>
-<div class="grid md:grid-cols-3 gap-6">
-    <a href="/customer/book-ride" class="bg-blue-600 text-white p-8 rounded-2xl shadow-xl hover:bg-blue-700 transition">
-        <i class="fas fa-car text-5xl mb-4"></i>
-        <h2 class="text-2xl font-bold mb-2">Book a Ride</h2>
-        <p class="text-blue-100">Get your ride in minutes</p>
-    </a>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Dashboard - LetsGo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg fixed w-full z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <a href="/customer" class="text-2xl font-bold text-blue-600">
+                <i class="fas fa-car-side mr-2"></i>LetsGo
+            </a>
+            <div class="flex items-center space-x-4">
+                <a href="/customer/dashboard" class="text-blue-600 font-bold">Dashboard</a>
+                <a href="/customer/wallet" class="text-gray-700 hover:text-blue-600">Wallet</a>
+                <a href="/customer/rides" class="text-gray-700 hover:text-blue-600">My Rides</a>
+                <a href="/customer/logout" class="text-red-600">Logout</a>
+            </div>
+        </div>
+    </nav>
 
-    <a href="/customer/wallet" class="bg-purple-600 text-white p-8 rounded-2xl shadow-xl hover:bg-purple-700 transition">
-        <i class="fas fa-wallet text-5xl mb-4"></i>
-        <h2 class="text-2xl font-bold mb-2">Wallet</h2>
-        <p class="text-purple-100">Fund & manage balance</p>
-    </a>
+    <!-- Main Content -->
+    <div class="max-w-6xl mx-auto px-4 py-24">
+        <!-- Welcome Section -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">👋 Welcome, <%= user.full_name || 'Valued Customer' %>!</h1>
+            <p class="text-gray-600 mt-2">Ready to book your next ride?</p>
+        </div>
 
-    <a href="/customer/rides" class="bg-green-600 text-white p-8 rounded-2xl shadow-xl hover:bg-green-700 transition">
-        <i class="fas fa-history text-5xl mb-4"></i>
-        <h2 class="text-2xl font-bold mb-2">Ride History</h2>
-        <p class="text-green-100">View past rides & rate</p>
-    </a>
-</div>
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Total Rides</p>
+                        <p class="text-3xl font-bold text-blue-600">0</p>
+                    </div>
+                    <div class="bg-blue-100 p-4 rounded-full">
+                        <i class="fas fa-car text-blue-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Wallet Balance</p>
+                        <p class="text-3xl font-bold text-purple-600">₦0.00</p>
+                    </div>
+                    <div class="bg-purple-100 p-4 rounded-full">
+                        <i class="fas fa-wallet text-purple-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Active Rides</p>
+                        <p class="text-3xl font-bold text-green-600">0</p>
+                    </div>
+                    <div class="bg-green-100 p-4 rounded-full">
+                        <i class="fas fa-clock text-green-600 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">🚀 Quick Actions</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <a href="/customer/book-ride" class="bg-blue-600 text-white p-8 rounded-2xl shadow-xl hover:bg-blue-700 transition">
+                <i class="fas fa-car text-5xl mb-4"></i>
+                <h2 class="text-2xl font-bold mb-2">Book a Ride</h2>
+                <p class="text-blue-100">Get your ride in minutes</p>
+            </a>
+
+            <a href="/customer/wallet" class="bg-purple-600 text-white p-8 rounded-2xl shadow-xl hover:bg-purple-700 transition">
+                <i class="fas fa-wallet text-5xl mb-4"></i>
+                <h2 class="text-2xl font-bold mb-2">Wallet</h2>
+                <p class="text-purple-100">Fund & manage balance</p>
+            </a>
+
+            <a href="/customer/rides" class="bg-green-600 text-white p-8 rounded-2xl shadow-xl hover:bg-green-700 transition">
+                <i class="fas fa-history text-5xl mb-4"></i>
+                <h2 class="text-2xl font-bold mb-2">Ride History</h2>
+                <p class="text-green-100">View past rides & rate</p>
+            </a>
+        </div>
+
+        <!-- Promotional Banner -->
+        <div class="mt-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-xl p-8 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-2xl font-bold mb-2">🎉 Ride with Confidence</h3>
+                    <p class="text-blue-100">Safe, reliable, and affordable rides at your fingertips</p>
+                </div>
+                <i class="fas fa-car-side text-6xl text-blue-200"></i>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
