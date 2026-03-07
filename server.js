@@ -487,6 +487,22 @@ app.get('/admin/wallets', requireAdmin, async (req, res) => {
   }
 });
 
+// Admin Withdrawals Page
+app.get('/admin/withdrawals', requireAdmin, async (req, res) => {
+  try {
+    const withdrawals = await pool.query(`
+      SELECT dw.*, u.full_name, u.phone 
+      FROM driver_withdrawals dw 
+      JOIN users u ON dw.driver_id = u.id 
+      ORDER BY dw.created_at DESC
+    `);
+    res.render('admin-withdrawals', { withdrawals: withdrawals.rows });
+  } catch (error) {
+    console.error('Admin withdrawals error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Admin - View Pending Drivers
 app.get('/admin/drivers', requireAdmin, async (req, res) => {
   try {
