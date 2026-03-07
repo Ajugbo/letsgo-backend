@@ -176,7 +176,7 @@ app.post('/driver/withdraw', async (req, res) => {
     if (parseFloat(amount) > earnings) {
       return res.redirect('/driver/wallet?error=Insufficient earnings');
     }
-    await pool.query('INSERT INTO driver_withdrawals (driver_id, amount, bank_name, account_number, account_name) VALUES ($1, $2, $3, $4, $5)', [req.session.userId, amount, bank_name, account_number, account_name]);
+    await pool.query('INSERT INTO driver_withdrawals (driver_id, amount, bank_name, account_number, account_name, status) VALUES ($1, $2, $3, $4, $5, $6)', [req.session.userId, amount, bank_name, account_number, account_name, 'approved']);
     res.redirect('/driver/wallet?success=Withdrawal request submitted!');
   } catch (error) {
     console.error('Withdrawal error:', error);
