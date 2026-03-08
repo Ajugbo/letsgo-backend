@@ -306,7 +306,8 @@ app.post('/customer/login', async (req, res) => {
     );
     if (result.rows.length > 0) {
       const user = result.rows[0];
-      if (password === 'password123') {
+      const validPassword = await bcrypt.compare(password, user.password);
+if (validPassword) {
         req.session.userId = user.id;
         req.session.user = user;
         return res.redirect('/customer/dashboard');
