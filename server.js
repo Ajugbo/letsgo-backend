@@ -1,5 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const cors = require('cors');
 const session = require('express-session');
 const path = require('path');
@@ -106,7 +107,9 @@ app.post('/driver/login', async (req, res) => {
     );
     if (result.rows.length > 0) {
       const user = result.rows[0];
-      if (password === 'password123' || password === user.password) {
+      const bcrypt = require('bcrypt');
+const validPassword = await bcrypt.compare(password, user.password);
+if (validPassword) {
         req.session.userId = user.id;
         req.session.user = user;
         req.session.isDriver = true;
