@@ -192,7 +192,7 @@ app.get('/driver/rides', async (req, res) => {
   if (!req.session.isDriver) { return res.redirect('/driver/login'); }
   try {
     const ridesResult = await pool.query(
-      "SELECT r.*, u.full_name, u.phone FROM rides r JOIN users u ON r.user_id = u.id WHERE r.status = 'pending' ORDER BY r.created_at DESC"
+      "SELECT r.*, u.full_name, u.phone FROM rides r JOIN users u ON r.customer_id = u.id WHERE r.status = 'pending' ORDER BY r.created_at DESC"
     );
     res.render('driver/driver-rides', { 
       user: req.session.user, 
