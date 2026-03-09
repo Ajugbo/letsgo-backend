@@ -71,10 +71,13 @@ app.post('/driver/signup', upload.single('license_document'), async (req, res) =
       return res.render('driver/driver-signup', { error: 'Phone number already registered', success: null });
     }
     
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
     // Create user account
     const userResult = await pool.query(
       'INSERT INTO users (full_name, phone, email, password, role, phone_verified) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-      [full_name, phone, email, password, 'driver', false]
+      [full_name, phone, email, hashedPassword, 'driver', false]
     );
     const userId = userResult.rows[0].id;
     
@@ -107,9 +110,8 @@ app.post('/driver/login', async (req, res) => {
     );
     if (result.rows.length > 0) {
       const user = result.rows[0];
-      const bcrypt = require('bcrypt');
-const validPassword = await bcrypt.compare(password, user.password);
-if (validPassword) {
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (validPassword) {
         req.session.userId = user.id;
         req.session.user = user;
         req.session.isDriver = true;
@@ -265,7 +267,7 @@ app.get('/driver/rides-history', async (req, res) => {
   if (!req.session.isDriver) { return res.redirect('/driver/login'); }
   try {
     const ridesResult = await pool.query(
-      "SELECT r.*, u.full_name, u.phone FROM rides r JOIN users u ON r.user_id = u.id WHERE r.driver_id = $1 ORDER BY r.created_at DESC",
+      "SELECT r.*, u.full_name, u.phone FROM rides r JOIN users u ON r.customer_id = u.id WHERE r.driver_id = $1 ORDER BY r.created_at DESC",
       [req.session.userId]
     );
     res.render('driver/driver-rides-history', { 
@@ -307,7 +309,7 @@ app.post('/customer/login', async (req, res) => {
     if (result.rows.length > 0) {
       const user = result.rows[0];
       const validPassword = await bcrypt.compare(password, user.password);
-if (validPassword) {
+      if (validPassword) {
         req.session.userId = user.id;
         req.session.user = user;
         return res.redirect('/customer/dashboard');
@@ -328,9 +330,10 @@ app.post('/customer/signup', async (req, res) => {
     if (existing.rows.length > 0) {
       return res.render('customer/signup', { error: 'Phone number already registered' });
     }
+    const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      `INSERT INTO users (full_name, phone, email, password, role, phone_verified, created_at) VALUES ($1, $2, $3, 'user', true, NOW()) RETURNING *`,
-      [full_name, phone, email || null]
+      `INSERT INTO users (full_name, phone, email, password, role, phone_verified, created_at) VALUES ($1, $2, $3, $4, 'customer', true, NOW()) RETURNING *`,
+      [full_name, phone, email, hashedPassword]
     );
     const user = result.rows[0];
     await pool.query(
@@ -346,9 +349,24 @@ app.post('/customer/signup', async (req, res) => {
   }
 });
 
-// Customer Dashboard
-app.get('/customer/dashboard', (req, res) => {
-  res.render('customer/dashboard', { user: req.session.user });
+// Customer Dashboard - FIXED: Now fetches wallet balance
+app.get('/customer/dashboard', async (req, res) => {
+  try {
+    const walletResult = await pool.query('SELECT balance FROM wallets WHERE user_id = $1', [req.session.userId]);
+    const balance = walletResult.rows.length > 0 ? walletResult.rows[0].balance : 0;
+    const ridesResult = await pool.query('SELECT COUNT(*) FROM rides WHERE customer_id = $1', [req.session.userId]);
+    const totalRides = ridesResult.rows[0].count;
+    const activeRidesResult = await pool.query("SELECT COUNT(*) FROM rides WHERE customer_id = $1 AND status IN ('pending', 'accepted')", [req.session.userId]);
+    const activeRides = activeRidesResult.rows[0].count;
+    res.render('customer/dashboard', { 
+      user: req.session.user, 
+      wallet: { balance: balance },
+      stats: { totalRides, activeRides }
+    });
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    res.render('customer/dashboard', { user: req.session.user, wallet: { balance: 0 }, stats: { totalRides: 0, activeRides: 0 } });
+  }
 });
 
 // Book Ride Page
@@ -540,17 +558,12 @@ app.post('/admin/driver/reject', requireAdmin, async (req, res) => {
   try {
     const { driver_id } = req.body;
     await pool.query("UPDATE drivers SET verified = false WHERE id = $1", [driver_id]);
-    // Optionally delete the user account
-    // await pool.query("DELETE FROM users WHERE id = (SELECT user_id FROM drivers WHERE id = $1)", [driver_id]);
     res.redirect('/admin/drivers?success=Driver rejected');
   } catch (error) {
     console.error('Reject driver error:', error);
     res.redirect('/admin/drivers?error=Failed to reject driver');
   }
 });
-
-// Auth Routes
-// app.use('/api/auth', require('./routes/auth')); // File not found
 
 // Payment: Fund Wallet
 app.post('/customer/wallet/fund', async (req, res) => {
@@ -568,8 +581,14 @@ app.post('/customer/wallet/fund', async (req, res) => {
       currency: 'NGN',
       metadata: { user_id: req.session.userId, full_name: user.full_name, type: 'wallet_funding' }
     });
-    await pool.query(`INSERT INTO transactions (user_id, amount, type, status, reference, description, created_at) VALUES ($1, $2, 'credit', 'pending', $3, $4, NOW())`, [req.session.userId, amount, response.data.reference, 'Wallet funding']);
-    // Note: Transaction status will be updated via webhook or callback
+    
+    // Validate Paystack response
+    if (!response || !response.data || !response.data.reference) {
+      console.error('Paystack response error:', response);
+      return res.render('customer/wallet', { user: req.session.user, wallet: { balance: 0 }, transactions: [], error: 'Payment gateway error. Please try again.', success: null });
+    }
+    
+    await pool.query(`INSERT INTO transactions (user_id, amount, type, status, reference_id, reference_type, description, created_at) VALUES ($1, $2, 'credit', 'pending', $3, 'wallet_funding', $4, NOW())`, [req.session.userId, amount, response.data.reference, 'Wallet funding']);
     console.log('Payment initiated:', response.data.reference);
     res.redirect(response.data.authorization_url);
   } catch (error) {
@@ -578,7 +597,7 @@ app.post('/customer/wallet/fund', async (req, res) => {
   }
 });
 
-// Ride Booking Route
+// Ride Booking Route - FIXED: Uses customer_id instead of user_id
 app.post('/customer/ride/book', async (req, res) => {
   if (!req.session.userId) {
     console.log('Ride booking: No user session');
@@ -596,7 +615,7 @@ app.post('/customer/ride/book', async (req, res) => {
     console.log('Calculated fare:', totalFare);
     
     await pool.query(
-      `INSERT INTO rides (user_id, pickup_location, dropoff_location, ride_type, seats_booked, fare, payment_method, status, created_at)
+      `INSERT INTO rides (customer_id, pickup_location, dropoff_location, ride_type, seats_booked, fare, payment_method, status, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', NOW())`,
       [req.session.userId, pickup_location, dropoff_location, ride_type, seats, totalFare, payment_method || 'cash']
     );
@@ -626,7 +645,7 @@ app.post('/customer/ride/pay', async (req, res) => {
     const wallet = walletResult.rows[0];
     if (!wallet || wallet.balance < amount) { return res.status(400).json({ error: 'Insufficient wallet balance' }); }
     await pool.query('UPDATE wallets SET balance = balance - $1 WHERE user_id = $2', [amount, req.session.userId]);
-    await pool.query(`INSERT INTO transactions (user_id, amount, type, status, reference, description, created_at) VALUES ($1, $2, 'debit', 'success', $3, $4, NOW())`, [req.session.userId, amount, 'ride_' + ride_id + '_' + Date.now(), 'Ride payment']);
+    await pool.query(`INSERT INTO transactions (user_id, amount, type, status, reference_id, reference_type, description, created_at) VALUES ($1, $2, 'debit', 'success', $3, 'ride_payment', $4, NOW())`, [req.session.userId, amount, 'ride_' + ride_id + '_' + Date.now(), 'Ride payment']);
     await pool.query(`UPDATE rides SET status = 'paid', payment_method = 'wallet' WHERE id = $1`, [ride_id]);
     res.json({ success: true, message: 'Payment successful!' });
   } catch (error) {
@@ -641,13 +660,13 @@ app.post('/customer/ride/rate', async (req, res) => {
   try {
     const { ride_id, rating, review } = req.body;
     if (!rating || rating < 1 || rating > 5) { return res.status(400).json({ error: 'Rating must be between 1 and 5 stars' }); }
-    const rideResult = await pool.query('SELECT * FROM rides WHERE id = $1 AND user_id = $2', [ride_id, req.session.userId]);
+    const rideResult = await pool.query('SELECT * FROM rides WHERE id = $1 AND customer_id = $2', [ride_id, req.session.userId]);
     if (rideResult.rows.length === 0) { return res.status(404).json({ error: 'Ride not found' }); }
     const existingRating = await pool.query('SELECT * FROM ride_ratings WHERE ride_id = $1', [ride_id]);
     if (existingRating.rows.length > 0) { return res.status(400).json({ error: 'Already rated' }); }
-    await pool.query('INSERT INTO ride_ratings (ride_id, user_id, rating, review, created_at) VALUES ($1, $2, $3, $4, NOW())', [ride_id, req.session.userId, rating, review || null]);
-    await pool.query("UPDATE rides SET status = 'completed', rated = true WHERE id = $1", [ride_id]);
-    res.redirect('/customer/dashboard?success=Thank you for your rating!');
+    await pool.query('INSERT INTO ride_ratings (ride_id, customer_id, rating, review, created_at) VALUES ($1, $2, $3, $4, NOW())', [ride_id, req.session.userId, rating, review || null]);
+    await pool.query("UPDATE rides SET status = 'completed' WHERE id = $1", [ride_id]);
+    res.redirect('/customer/rides?success=Thank you for your rating!');
   } catch (error) {
     console.error('Rating error:', error);
     res.status(500).json({ error: 'Failed to submit rating' });
@@ -666,7 +685,7 @@ app.get('/customer/rides', async (req, res) => {
       LEFT JOIN ride_ratings rr ON r.id = rr.ride_id 
       LEFT JOIN drivers d ON r.driver_id = d.user_id 
       LEFT JOIN users u ON r.driver_id = u.id 
-      WHERE r.user_id = $1 
+      WHERE r.customer_id = $1 
       ORDER BY r.created_at DESC
     `, [req.session.userId]);
     res.render('customer/ride-history', { user: req.session.user, rides: ridesResult.rows });
@@ -679,7 +698,7 @@ app.get('/customer/rides', async (req, res) => {
 // Admin Driver Ratings
 app.get('/admin/driver-ratings', requireAdmin, async (req, res) => {
   try {
-    const ratingsResult = await pool.query(`SELECT u.full_name, u.phone, COUNT(rr.id) as total_ratings, AVG(rr.rating) as average_rating, MAX(rr.created_at) as last_rated FROM users u LEFT JOIN rides r ON u.id = r.user_id LEFT JOIN ride_ratings rr ON r.id = rr.ride_id WHERE u.role = 'user' GROUP BY u.id HAVING COUNT(rr.id) > 0 ORDER BY average_rating DESC`);
+    const ratingsResult = await pool.query(`SELECT u.full_name, u.phone, COUNT(rr.id) as total_ratings, AVG(rr.rating) as average_rating, MAX(rr.created_at) as last_rated FROM users u LEFT JOIN rides r ON u.id = r.customer_id LEFT JOIN ride_ratings rr ON r.id = rr.ride_id WHERE u.role = 'driver' GROUP BY u.id HAVING COUNT(rr.id) > 0 ORDER BY average_rating DESC`);
     res.render('driver-ratings', { ratings: ratingsResult.rows });
   } catch (error) {
     console.error('Driver ratings error:', error);
@@ -700,10 +719,10 @@ app.get('/customer/wallet/callback', async (req, res) => {
       const amount = verification.data.amount / 100;
       const userId = verification.data.metadata.user_id;
       await pool.query('UPDATE wallets SET balance = balance + $1 WHERE user_id = $2', [amount, userId]);
-      await pool.query("UPDATE transactions SET status = 'success' WHERE reference = $1", [reference]);
+      await pool.query("UPDATE transactions SET status = 'success' WHERE reference_id = $1", [reference]);
       return res.redirect('/customer/wallet?success=Payment successful!');
     }
-    await pool.query("UPDATE transactions SET status = 'failed' WHERE reference = $1", [reference]);
+    await pool.query("UPDATE transactions SET status = 'failed' WHERE reference_id = $1", [reference]);
     res.redirect('/customer/wallet?error=Payment failed');
   } catch (error) {
     console.error('Payment callback error:', error);
@@ -716,5 +735,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log('Server running on port ' + PORT);
   console.log('Customer: http://localhost:' + PORT + '/customer');
-console.log('Admin: http://localhost:' + PORT + '/admin/login');
+  console.log('Admin: http://localhost:' + PORT + '/admin/login');
 });
